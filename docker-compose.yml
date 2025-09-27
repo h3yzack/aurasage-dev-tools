@@ -47,7 +47,7 @@ services:
       - aurasage
 
   loki:
-    image: grafana/loki:main-fd073bc
+    image: grafana/loki:3.5.5
     container_name: aurasage-loki
     ports:
       - "3100:3100"

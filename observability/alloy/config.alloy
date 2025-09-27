@@ -32,6 +32,9 @@ loki.process "json_log" {
             "level" = "",
             "logger_name" = "",
             "message" = "",
+            "stack_trace" = "",
+            "traceId" = "",
+            "spanId" = "",
         }
     }
 
@@ -43,12 +46,25 @@ loki.process "json_log" {
     stage.labels {
         values = {
             "level" = "",
-            "logger_name" = "",
         }
     }
 
+    stage.structured_metadata {
+        values = {
+            "level" = "level",
+            "traceId" = "traceId",
+            "spanId" = "spanId",
+            "logger" = "logger_name",
+        }
+    }
+
+    stage.template {
+        source = "combined_message"
+        template = "{{ .message }}{{ if .stack_trace }}\nStackTrace: {{ .stack_trace }}{{ end }}{{ if .traceId }}\nTraceId: {{ .traceId }}{{ end }}"
+    }
+
     stage.output {
-        source = "message"
+        source = "combined_message"
     }
 
     forward_to = [loki.write.local.receiver]

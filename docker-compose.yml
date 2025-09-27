@@ -1,0 +1,118 @@
+version: '3.8'
+services:
+  mongo:
+    image: mongo:8.0
+    container_name: aurasage_mongo
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=devpassword
+      - MONGO_INITDB_DATABASE=aurasage
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aurasage
+
+  minio:
+    image: minio/minio
+    container_name: aurasage_minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - minio_data:/data
+    command: minio server /data --console-address :9001
+    networks:
+      - aurasage
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: aurasage_rabbitmq
+    ports:
+      - "5672:5672" # Standard AMQP port
+      - "15672:15672" # Management UI
+    environment:
+      - RABBITMQ_DEFAULT_USER=aurasage
+      - RABBITMQ_DEFAULT_PASS=devpassword
+    networks:
+      - aurasage
+
+  loki:
+    image: grafana/loki:main-fd073bc
+    container_name: aurasage-loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./observability/loki/loki-config.yml:/etc/loki/local-config.yaml
+    networks:
+      - aurasage
+
+  alloy:
+    image: grafana/alloy:v1.10.2
+    container_name: aurasage-alloy
+    ports:
+      - 12345:12345
+      - 4318:4318
+    volumes:
+      - ./observability/alloy/config.alloy:/etc/alloy/config.alloy
+      - ../logs:/var/log/aurasage:ro
+    command: run --server.http.listen-addr=0.0.0.0:12345 --stability.level=experimental  --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+    networks:
+      - aurasage
+    depends_on:
+      - loki
+
+  prometheus:
+    image: prom/prometheus:v3.6.0
+    container_name: aurasage-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - aurasage
+
+  # Grafana for metrics visualization
+  grafana:
+    image: grafana/grafana:12.2
+    container_name: aurasage-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_BASIC_ENABLED=false
+      # - GF_SECURITY_ADMIN_PASSWORD=
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - aurasage
+    depends_on:
+      - prometheus
+
+volumes:
+  mongo_data:
+  minio_data:
+  grafana-storage:
+
+networks:
+  aurasage:
+    driver: bridge

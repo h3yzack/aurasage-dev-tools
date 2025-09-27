@@ -1,0 +1,61 @@
+
+livedebugging {
+  enabled = true
+}
+
+local.file_match "local_files" {
+    path_targets = [{"__path__" = "/var/log/aurasage/*.log", "job" = "aurasage-document-service", "hostname" = constants.hostname}]
+    sync_period  = "5s"
+}
+ 
+loki.source.file "log_scrape" {
+    targets    = local.file_match.local_files.targets
+    forward_to = [loki.write.local.receiver]
+    tail_from_end = true
+}
+
+local.file_match "json_files" {
+    path_targets = [{"__path__" = "/var/log/aurasage/*.json", "job" = "aurasage-document-service-json", "hostname" = constants.hostname}]
+    sync_period  = "5s"
+}
+ 
+loki.source.file "json_log_scrape" {
+    targets    = local.file_match.json_files.targets
+    forward_to = [loki.process.json_log.receiver]
+    tail_from_end = true
+}
+
+loki.process "json_log" {
+    stage.json {
+        expressions = {
+            "timestamp" = "",
+            "level" = "",
+            "logger_name" = "",
+            "message" = "",
+        }
+    }
+
+    stage.timestamp {
+        source = "timestamp"
+        format = "RFC3339"
+    }
+
+    stage.labels {
+        values = {
+            "level" = "",
+            "logger_name" = "",
+        }
+    }
+
+    stage.output {
+        source = "message"
+    }
+
+    forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

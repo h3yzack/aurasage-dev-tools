@@ -9,7 +9,7 @@ Scripts and configuration files for running the AuraSage development environment
 ## Setup
 
 1. Copy `.env.example` to `.env` and adjust values as needed
-2. Run the initialization script to generate config files from templates
+2. Initialize configuration: `make init`
 
 ## Services
 
@@ -29,7 +29,19 @@ Two profiles are available:
 
 ## Usage
 
-Start environment with a profile:
+### Using Make (recommended)
+```bash
+make init          # Initialize configuration
+make up            # Start documentService profile
+make up-obs        # Start observability profile
+make down          # Stop all environments
+make clean         # Remove containers and volumes
+make logs          # Follow logs
+make status        # Show service status
+```
+
+### Using scripts directly
+Start environment:
 ```bash
 ./start-env.sh [profile]
 ./start-env.sh documentService  # default
@@ -41,13 +53,9 @@ Stop environment:
 ./stop-env.sh [profile]
 ```
 
-Remove containers and volumes:
-```bash
-docker-compose --profile [profile] down -v
-```
-
 ## Configuration
 
 * `config/` - Initialization scripts and service configurations
 * `observability/` - Monitoring, logging, and tracing configurations
 * Templates in `config/template/` are processed by `init.sh` using environment variables
+* See `SERVICES.md` for ports and credentials

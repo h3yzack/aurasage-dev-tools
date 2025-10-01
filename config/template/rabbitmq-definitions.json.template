@@ -1,0 +1,45 @@
+{
+    "users": [
+        {
+            "name": "${AURASAGE_USER}",
+            "password": "${AURASAGE_PASS}",
+            "tags": "administrator"
+        }
+    ],
+    "vhosts": [
+        {
+            "name": "/"
+        }
+    ],
+    "permissions": [{ "user": "${AURASAGE_USER}", "vhost": "/", "configure": ".*", "write": ".*", "read": ".*" }],
+    "queues": [
+        {
+            "name": "${QUEUE_NAME}",
+            "vhost": "/",
+            "durable": true,
+            "auto_delete": false,
+            "arguments": {}
+        }
+    ],
+    "exchanges": [
+        {
+            "name": "${EXCHANGE_NAME}",
+            "vhost": "/",
+            "type": "fanout",
+            "durable": true,
+            "auto_delete": false,
+            "internal": false,
+            "arguments": {}
+        }
+    ],
+    "bindings": [
+        {
+            "source": "${EXCHANGE_NAME}",
+            "vhost": "/",
+            "destination": "${QUEUE_NAME}",
+            "destination_type": "queue",
+            "routing_key": "${ROUTING_KEY}",
+            "arguments": {}
+        }
+    ]
+}

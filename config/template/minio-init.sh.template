@@ -1,0 +1,37 @@
+#!/bin/sh
+set -e
+
+echo "🚀 Starting MinIO..."
+/usr/bin/minio server /data --console-address ":9001" &
+
+# Wait for MinIO to start
+echo "⏳ Waiting for MinIO to be ready..."
+until curl -s http://localhost:9000/minio/health/live >/dev/null; do
+  sleep 2
+done
+
+echo "✅ MinIO is up. Configuring..."
+
+# Configure mc client
+mc alias set local http://localhost:9000 ${AURASAGE_USER} ${AURASAGE_PASS}
+
+# Create bucket
+if ! mc ls local/$BUCKET_NAME >/dev/null 2>&1; then
+  mc mb local/$BUCKET_NAME
+  echo "✅ Bucket created: $BUCKET_NAME"
+else
+  echo "ℹ️ Bucket already exists: $BUCKET_NAME"
+fi
+
+# Event configuration
+IDENTIFIER="${STORAGE_IDENTIFIER:-AURASAGE}"
+mc event remove local/$BUCKET_NAME --force
+
+mc event add local/$BUCKET_NAME arn:minio:sqs::AURASAGE:amqp \
+  --event put,delete
+
+echo "📋 Current event config:"
+mc event list local/$BUCKET_NAME
+
+echo "✅ Initialization complete. Keeping MinIO running..."
+wait

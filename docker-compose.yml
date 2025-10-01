@@ -1,12 +1,14 @@
-version: '3.8'
+# version: '3.8'
 services:
   mongo:
     image: mongo:8.0
     container_name: aurasage_mongo
+    profiles:
+      - documentService
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=root
-      - MONGO_INITDB_ROOT_PASSWORD=devpassword
-      - MONGO_INITDB_DATABASE=aurasage
+      - MONGO_INITDB_ROOT_USERNAME=${AURASAGE_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${AURASAGE_PASS}
+      - MONGO_INITDB_DATABASE=${AURASAGE_DOCUMENT_DB}
     ports:
       - "27018:27017"
     volumes:
@@ -22,14 +24,23 @@ services:
   minio:
     image: minio/minio
     container_name: aurasage_minio
+    profiles:
+      - documentService
     ports:
       - "9000:9000"
       - "9001:9001"
     environment:
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=minioadmin
+      - MINIO_ROOT_USER=${AURASAGE_USER}
+      - MINIO_ROOT_PASSWORD=${AURASAGE_PASS}
+      - MINIO_NOTIFY_AMQP_ENABLE_AURASAGE=on
+      - MINIO_NOTIFY_AMQP_URL_AURASAGE=amqp://${AURASAGE_USER}:${AURASAGE_PASS}@rabbitmq:5672
+      - MINIO_NOTIFY_AMQP_EXCHANGE_AURASAGE=${EXCHANGE_NAME}
+      - MINIO_NOTIFY_AMQP_EXCHANGE_TYPE_AURASAGE=${EXCHANGE_TYPE}
+      - MINIO_NOTIFY_AMQP_DURABLE_AURASAGE=on
+    entrypoint: ["/bin/sh", "/config/minio-entrypoint.sh"]
     volumes:
       - minio_data:/data
+      - ./config/minio-init.sh:/config/minio-entrypoint.sh:ro
     command: minio server /data --console-address :9001
     networks:
       - aurasage
@@ -37,18 +48,24 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     container_name: aurasage_rabbitmq
+    profiles:
+      - documentService
     ports:
       - "5672:5672" # Standard AMQP port
       - "15672:15672" # Management UI
     environment:
-      - RABBITMQ_DEFAULT_USER=aurasage
-      - RABBITMQ_DEFAULT_PASS=devpassword
+      - RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=-rabbitmq_management load_definitions "/etc/rabbitmq/definitions.json"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+      - ./config/rabbitmq-definitions.json:/etc/rabbitmq/definitions.json:ro
     networks:
       - aurasage
 
   loki:
     image: grafana/loki:3.5.5
     container_name: aurasage-loki
+    profiles:
+      - observability
     ports:
       - "3100:3100"
     command: -config.file=/etc/loki/local-config.yaml
@@ -60,6 +77,8 @@ services:
   alloy:
     image: grafana/alloy:v1.10.2
     container_name: aurasage-alloy
+    profiles:
+      - observability
     ports:
       - 12345:12345
       - 4318:4318
@@ -75,6 +94,8 @@ services:
   prometheus:
     image: prom/prometheus:v3.6.0
     container_name: aurasage-prometheus
+    profiles:
+      - observability
     ports:
       - "9090:9090"
     volumes:
@@ -92,6 +113,8 @@ services:
   grafana:
     image: grafana/grafana:12.2
     container_name: aurasage-grafana
+    profiles:
+      - observability
     ports:
       - "3000:3000"
     environment:
@@ -108,10 +131,25 @@ services:
     depends_on:
       - prometheus
 
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: zipkin
+    profiles:
+      - observability
+    ports:
+      - "9411:9411"
+    environment:
+      - STORAGE_TYPE=mem
+      - MEM_MAX_SPANS=10000
+      - JAVA_OPTS=-XX:+UseG1GC -Xms128m -Xmx128m
+    networks:
+      - aurasage
+
 volumes:
   mongo_data:
   minio_data:
   grafana-storage:
+  rabbitmq-data:
 
 networks:
   aurasage:

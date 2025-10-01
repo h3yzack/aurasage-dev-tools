@@ -55,12 +55,13 @@ loki.process "json_log" {
             "traceId" = "traceId",
             "spanId" = "spanId",
             "logger" = "logger_name",
+            "message" = "message",
         }
     }
 
     stage.template {
         source = "combined_message"
-        template = "{{ .message }}{{ if .stack_trace }}\nStackTrace: {{ .stack_trace }}{{ end }}{{ if .traceId }}\nTraceId: {{ .traceId }}{{ end }}"
+        template = "TraceId: {{ .traceId }}\n {{ .message }}{{ if .stack_trace }}\nStackTrace: {{ .stack_trace }}{{ end }}{{ if .traceId }}{{ end }}"
     }
 
     stage.output {

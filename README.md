@@ -1,36 +1,53 @@
 # AuraSage Dev Tools
 
-This repository contains all the necessary scripts and configurations to set up and manage the local development environment for the AuraSage platform.
-
-It uses **Docker Compose** to orchestrate all the required infrastructure services, ensuring a consistent and isolated environment for all developers.
+Scripts and configuration files for running the AuraSage development environment with Docker Compose.
 
 ## Prerequisites
+* Docker ([Install guide](https://www.docker.com/get-started))
+* Docker Compose (included with Docker Desktop)
 
-* **Docker:** [Get Docker here](https://www.docker.com/get-started)
-* **Docker Compose:** Comes bundled with Docker Desktop.
+## Setup
 
-## Local Environment Services
+1. Copy `.env.example` to `.env` and adjust values as needed
+2. Run the initialization script to generate config files from templates
 
-The `docker-compose.yml` file defines the following services:
+## Services
 
-* **MongoDB:** The primary database for all services.
-* **MinIO:** An S3-compatible object storage solution for storing documents.
-* **RabbitMQ:** The message queue for asynchronous communication between services.
-* **AuraSage Microservices:** A placeholder for each microservices.
+Two profiles are available:
 
-## Getting Started
+### documentService (default)
+* MongoDB (database on port 27018)
+* MinIO (object storage on ports 9000/9001)
+* RabbitMQ (message queue on ports 5672/15672)
 
-1.  **Start the environment:**
-    Run the `start-dev-env.sh` script. This will build and start all the services.
-    `./start-dev-env.sh`
+### observability
+* Loki (log aggregation on port 3100)
+* Alloy (data collection on ports 12345/4318)
+* Prometheus (metrics on port 9090)
+* Grafana (visualization on port 3000)
+* Zipkin (tracing on port 9411)
 
+## Usage
 
-## Stopping the Environment
+Start environment with a profile:
+```bash
+./start-env.sh [profile]
+./start-env.sh documentService  # default
+./start-env.sh observability
+```
 
-To stop all the running containers without deleting your data volumes, run the `tear-down-env.sh` script:
+Stop environment:
+```bash
+./stop-env.sh [profile]
+```
 
-`./tear-down-env.sh`
+Remove containers and volumes:
+```bash
+docker-compose --profile [profile] down -v
+```
 
-For a complete cleanup, including data volumes, use `docker-compose down -v`.
+## Configuration
 
----
+* `config/` - Initialization scripts and service configurations
+* `observability/` - Monitoring, logging, and tracing configurations
+* Templates in `config/template/` are processed by `init.sh` using environment variables
